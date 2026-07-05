@@ -177,6 +177,11 @@
     (when root (record-project! root))
     root))
 
+(define (record-cwd-project!)
+  (let ([root (find-project-root (get-helix-cwd))])
+    (when root (record-project! root))
+    root))
+
 (define (record-document-project! doc-id)
   (with-handler
     (lambda (_) #false)
@@ -230,10 +235,10 @@
     (register-hook 'post-command
                    (lambda (command-name)
                      (when (record-cwd-command? command-name)
-                       (record-current-project!))))
+                       (record-cwd-project!))))
     (set! *project-switcher-hooks-installed?* #true))
   (project-switcher-install-keybindings)
-  (record-current-project!)
+  (record-cwd-project!)
   "helix-project-switcher initialized")
 
 (define (project-line path)
