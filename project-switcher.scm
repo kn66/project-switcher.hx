@@ -22,7 +22,7 @@
          project-switcher-remove
          project-switcher-clear-missing)
 
-(define PROJECT-SWITCHER "helix-project-switcher")
+(define PROJECT-SWITCHER "project-switcher.hx")
 
 (define PROJECT-SWITCHER-KEYBINDINGS
   (hash "normal"
@@ -34,7 +34,7 @@
               "q" ':buffer-close!)))
 
 (define *project-switcher-max-projects* 100)
-(define *project-switcher-buffer-path* "/tmp/helix-project-switcher")
+(define *project-switcher-buffer-path* "/tmp/project-switcher.hx")
 (define *project-switcher-line-paths* '())
 (define *project-switcher-rendered-text* "")
 (define *project-switcher-keybindings-installed?* #false)
@@ -224,7 +224,7 @@
       (keymaps.merge-keybindings base PROJECT-SWITCHER-KEYBINDINGS)
       (keymaps.set-global-buffer-or-extension-keymap (hash PROJECT-SWITCHER base))
       (set! *project-switcher-keybindings-installed?* #true)
-      "installed helix-project-switcher keybindings")))
+      "installed project-switcher.hx keybindings")))
 
 ;;@doc
 ;; Install hooks that automatically record opened projects.
@@ -240,7 +240,7 @@
     (set! *project-switcher-hooks-installed?* #true))
   (project-switcher-install-keybindings)
   (record-cwd-project!)
-  "helix-project-switcher initialized")
+  "project-switcher.hx initialized")
 
 (define (project-line path)
   (let ([prefix (if (and (path-exists? path) (is-dir? path)) "  " "! ")])
@@ -248,7 +248,7 @@
 
 (define (render-lines projects)
   (append
-    (list "helix-project-switcher"
+    (list "project-switcher.hx"
           "RET switch  a add current  d remove  D prune missing  g refresh  q close"
           "")
     (if (null? projects)

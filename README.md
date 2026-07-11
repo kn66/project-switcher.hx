@@ -1,4 +1,4 @@
-# Helix Project Switcher
+# project-switcher.hx
 
 Recent project switcher for Helix Steel/Scheme.
 
@@ -17,14 +17,14 @@ projects by default.
 Install the plugin with Forge:
 
 ```sh
-forge pkg install --git https://github.com/kn66/helix-project-switcher.git
+forge pkg install --git https://github.com/kn66/project-switcher.hx.git
 ```
 
 Forge installs the package under Steel's `cogs` directory. Expose the commands
 from your Helix `helix.scm`:
 
 ```scheme
-(require (only-in "helix-project-switcher/helix.scm"
+(require (only-in "project-switcher.hx/project-switcher.scm"
                   project-switcher
                   project-switcher-config!
                   project-switcher-set-max-projects!
@@ -49,11 +49,11 @@ from your Helix `helix.scm`:
 To update the plugin, reinstall it with `--force`:
 
 ```sh
-forge pkg install --git https://github.com/kn66/helix-project-switcher.git --force
+forge pkg install --git https://github.com/kn66/project-switcher.hx.git --force
 ```
 
-For local development, run `forge install /path/to/helix-project-switcher
---force` or require the checkout's `helix.scm` directly.
+For local development, run `forge install /path/to/project-switcher.hx
+--force` or require the checkout's `project-switcher.scm` directly.
 
 The plugin calls `project-switcher-init` when loaded, so automatic recording is
 enabled after the module is required.
