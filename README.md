@@ -9,20 +9,22 @@ projects by default.
 ## Requirements
 
 - Helix built with Steel support
+- Steel's `forge` package manager
 - A Steel setup that loads `helix.scm`
 
 ## Installation
 
-With `helix-steel-plugin-manager`:
+Install the plugin with Forge:
 
-```scheme
-(plugin-ensure "kn66/helix-project-switcher")
+```sh
+forge pkg install --git https://github.com/kn66/helix-project-switcher.git
 ```
 
-For a manual local install, expose the commands from your Helix `helix.scm`:
+Forge installs the package under Steel's `cogs` directory. Expose the commands
+from your Helix `helix.scm`:
 
 ```scheme
-(require (only-in "path/to/helix-project-switcher/helix.scm"
+(require (only-in "helix-project-switcher/helix.scm"
                   project-switcher
                   project-switcher-config!
                   project-switcher-set-max-projects!
@@ -43,6 +45,15 @@ For a manual local install, expose the commands from your Helix `helix.scm`:
          project-switcher-remove
          project-switcher-clear-missing)
 ```
+
+To update the plugin, reinstall it with `--force`:
+
+```sh
+forge pkg install --git https://github.com/kn66/helix-project-switcher.git --force
+```
+
+For local development, run `forge install /path/to/helix-project-switcher
+--force` or require the checkout's `helix.scm` directly.
 
 The plugin calls `project-switcher-init` when loaded, so automatic recording is
 enabled after the module is required.
