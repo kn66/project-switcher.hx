@@ -55,16 +55,19 @@ Open the switcher:
 :project-switcher
 ```
 
-Inside the switcher buffer:
+The project list opens in a modal window over the current editor view:
 
 | Key | Action |
 | --- | --- |
+| `up` / `down` | Move the selection |
+| `pageup` / `pagedown` | Move by one page |
+| `home` / `end` | Select the first or last project |
 | `ret` | Switch to the selected project |
-| `a` | Add the current project |
-| `d` | Remove the selected project |
-| `D` | Remove missing directories |
-| `g` | Refresh |
-| `q` | Close the switcher buffer |
+| `delete` | Remove the selected project from history |
+| `esc` | Close the modal |
+
+Missing project directories are marked with `!` and remain in the list until
+`project-switcher-clear-missing` is run.
 
 ## Configuration
 

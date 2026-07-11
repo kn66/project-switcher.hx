@@ -1,6 +1,7 @@
 (require "helix/static.scm")
 (require "helix/editor.scm")
 (require "helix/misc.scm")
+(require "helix/components.scm")
 (require (prefix-in keymaps. "helix/keymaps.scm"))
 (require (prefix-in helix. "helix/commands.scm"))
 (require-builtin steel/filesystem)
@@ -295,12 +296,175 @@
       (normal_mode)
       (map-current-project-switcher-buffer!))))
 
+(define PROJECT-SWITCHER-MODAL-MAX-WIDTH 80)
+(define PROJECT-SWITCHER-MODAL-MAX-ROWS 12)
+
+;; Modal state slots: projects, selected index, scroll offset, visible rows.
+(define (project-switcher-modal-state projects)
+  (vector projects 0 0 1))
+
+(define (modal-projects state) (vector-ref state 0))
+(define (modal-selected state) (vector-ref state 1))
+(define (modal-offset state) (vector-ref state 2))
+(define (modal-visible-rows state) (vector-ref state 3))
+
+(define (modal-set-projects! state projects) (vector-set! state 0 projects))
+(define (modal-set-selected! state selected) (vector-set! state 1 selected))
+(define (modal-set-offset! state offset) (vector-set! state 2 offset))
+(define (modal-set-visible-rows! state rows) (vector-set! state 3 rows))
+
+(define (modal-project-count state)
+  (length (modal-projects state)))
+
+(define (modal-selected-path state)
+  (let ([projects (modal-projects state)]
+        [selected (modal-selected state)])
+    (if (and (not (null? projects))
+             (>= selected 0)
+             (< selected (length projects)))
+        (list-ref projects selected)
+        #false)))
+
+(define (modal-clamp-selection! state selected)
+  (let ([count (modal-project-count state)])
+    (modal-set-selected!
+      state
+      (if (= count 0)
+          0
+          (max 0 (min selected (- count 1)))))))
+
+(define (modal-ensure-selection-visible! state)
+  (let ([selected (modal-selected state)]
+        [offset (modal-offset state)]
+        [rows (max 1 (modal-visible-rows state))])
+    (cond
+      [(< selected offset) (modal-set-offset! state selected)]
+      [(>= selected (+ offset rows))
+       (modal-set-offset! state (+ 1 (- selected rows)))])))
+
+(define (modal-move-selection! state amount)
+  (modal-clamp-selection! state (+ (modal-selected state) amount))
+  (modal-ensure-selection-visible! state))
+
+(define (modal-lines state start count)
+  (let ([projects (modal-projects state)]
+        [selected (modal-selected state)])
+    (let loop ([index start] [remaining count])
+      (if (or (<= remaining 0) (>= index (length projects)))
+          '()
+          (let* ([path (list-ref projects index)]
+                 [missing? (not (and (path-exists? path) (is-dir? path)))]
+                 [prefix (if (= index selected) "> " "  ")]
+                 [marker (if missing? "! " "")])
+            (cons (string-append prefix marker path)
+                  (loop (+ index 1) (- remaining 1))))))))
+
+(define (project-switcher-modal-render state viewport frame)
+  (let* ([viewport-width (area-width viewport)]
+         [viewport-height (area-height viewport)]
+         [width (max 4 (min PROJECT-SWITCHER-MODAL-MAX-WIDTH
+                            (- viewport-width 2)))]
+         [desired-rows (max 1 (min PROJECT-SWITCHER-MODAL-MAX-ROWS
+                                   (modal-project-count state)))]
+         [height (max 5 (min (+ desired-rows 4) (- viewport-height 2)))]
+         [x (+ (area-x viewport) (quotient (- viewport-width width) 2))]
+         [y (+ (area-y viewport) (quotient (- viewport-height height) 2))]
+         [modal-area (area x y width height)]
+         [rows (max 1 (- height 4))]
+         [list-area (area (+ x 1) (+ y 2) (- width 2) rows)]
+         [footer-row (+ y (- height 2))])
+    (modal-set-visible-rows! state rows)
+    (modal-ensure-selection-visible! state)
+    (buffer/clear frame modal-area)
+    (block/render frame modal-area (block))
+    (frame-set-string! frame (+ x 2) (+ y 1) "Projects" (style))
+    (widget/list/render
+      frame
+      list-area
+      (widget/list
+        (if (= (modal-project-count state) 0)
+            (list "  No projects recorded yet.")
+            (modal-lines state (modal-offset state) rows))))
+    (frame-set-string!
+      frame
+      (+ x 2)
+      footer-row
+      "Up/Down select  Enter switch  Esc close"
+      (style))))
+
+(define (modal-switch-project! state)
+  (let ([path (modal-selected-path state)])
+    (cond
+      [(not path)
+       (set-error! "no project selected")
+       #false]
+      [(not (path-exists? path))
+       (set-error! (string-append "project does not exist: " path))
+       #false]
+      [(not (is-dir? path))
+       (set-error! (string-append "project is not a directory: " path))
+       #false]
+      [else
+       (record-project! path)
+       (helix.change-current-directory path)
+       (set-status! (string-append "project switched to " path))
+       #true])))
+
+(define (modal-remove-project! state)
+  (let ([path (modal-selected-path state)])
+    (when path
+      (let ([projects (remove-path path (modal-projects state))])
+        (save-projects! projects)
+        (modal-set-projects! state projects)
+        (modal-clamp-selection! state (modal-selected state))
+        (modal-ensure-selection-visible! state)
+        (set-status! (string-append "project removed " path))))))
+
+(define (project-switcher-modal-handle-event state event)
+  (cond
+    [(key-event-escape? event) event-result/close]
+    [(key-event-up? event)
+     (modal-move-selection! state -1)
+     event-result/consume]
+    [(key-event-down? event)
+     (modal-move-selection! state 1)
+     event-result/consume]
+    [(key-event-page-up? event)
+     (modal-move-selection! state (- (modal-visible-rows state)))
+     event-result/consume]
+    [(key-event-page-down? event)
+     (modal-move-selection! state (modal-visible-rows state))
+     event-result/consume]
+    [(key-event-home? event)
+     (modal-clamp-selection! state 0)
+     (modal-ensure-selection-visible! state)
+     event-result/consume]
+    [(key-event-end? event)
+     (modal-clamp-selection! state (- (modal-project-count state) 1))
+     (modal-ensure-selection-visible! state)
+     event-result/consume]
+    [(key-event-delete? event)
+     (modal-remove-project! state)
+     event-result/consume]
+    [(key-event-enter? event)
+     (if (modal-switch-project! state)
+         event-result/close
+         event-result/consume)]
+    [else event-result/consume-without-rerender]))
+
+(define (open-project-switcher-modal!)
+  (let ([state (project-switcher-modal-state (project-switcher-projects))])
+    (push-component!
+      (new-component!
+        PROJECT-SWITCHER
+        state
+        project-switcher-modal-render
+        (hash "handle_event" project-switcher-modal-handle-event)))))
+
 ;;@doc
-;; Open the recent project switcher.
+;; Open the recent project switcher in a modal window.
 (define (project-switcher)
-  (project-switcher-install-keybindings)
-  (render-project-switcher!)
-  (open-project-switcher-buffer!)
+  (open-project-switcher-modal!)
   (set-status! "project-switcher"))
 
 ;;@doc
